@@ -8,12 +8,14 @@ import yt_dlp
 app = Flask(__name__)
 
 def get_cookie_file():
-    """Extracts YOUTUBE_COOKIES from environment variables and writes to a temp file if available."""
+    """Extracts YOUTUBE_COOKIES from environment variables and formats line breaks properly."""
     cookies_env = os.environ.get('YOUTUBE_COOKIES')
     if not cookies_env:
         return None
 
-    cookies_env = cookies_env.strip()
+    # Handle literal '\n' characters caused by Render's UI text fields
+    cookies_env = cookies_env.strip().replace('\\n', '\n')
+
     if not cookies_env.startswith('# Netscape'):
         cookies_env = "# Netscape HTTP Cookie File\n" + cookies_env
 
@@ -38,28 +40,34 @@ def download_single():
     temp_dir = tempfile.mkdtemp()
     cookie_path = get_cookie_file()
 
+    # Base yt-dlp configuration with Android/iOS client spoofing to bypass bot challenges
+    ydl_opts = {
+        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+        'restrictfilenames': True,
+        'quiet': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios'],
+            }
+        }
+    }
+
     if fmt == 'mp3':
-        ydl_opts = {
+        ydl_opts.update({
             'format': 'bestaudio/best',
-            'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
             'postprocessors': [
                 {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '320'},
                 {'key': 'FFmpegMetadata', 'add_metadata': True},
             ],
             'postprocessor_args': {'FFmpegMetadata': ['-id3v2_version', '3']},
-            'restrictfilenames': True,
-            'quiet': True,
-        }
+        })
         target_ext = '.mp3'
     else:
         # 1080p Video + Audio merging
-        ydl_opts = {
+        ydl_opts.update({
             'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best',
-            'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
-            'restrictfilenames': True,
-            'quiet': True,
-        }
+        })
         target_ext = '.mp4'
 
     if cookie_path:
@@ -116,6 +124,11 @@ def download_custom():
         'postprocessor_args': {'FFmpegMetadata': ['-id3v2_version', '3']},
         'restrictfilenames': True,
         'quiet': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios'],
+            }
+        }
     }
 
     if cookie_path:
