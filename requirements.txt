@@ -1,3 +1,4 @@
 flask
 yt-dlp
+yt-dlp-youtube-oauth2
 gunicorn
