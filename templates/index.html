@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Downloader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #09090b;
+            --surface: #121215;
+            --border: #27272a;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --accent: #22c55e;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 540px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .header { text-align: center; }
+        .title { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 4px; }
+        .subtitle { color: var(--text-secondary); font-size: 0.875rem; }
+
+        .tabs {
+            display: flex;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: var(--bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: flex; flex-direction: column; gap: 16px; }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            padding: 8px 12px;
+            font-size: 0.95rem;
+        }
+
+        select {
+            background: var(--bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .btn-main {
+            background: var(--text-primary);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .queue-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .song-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .song-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .btn-remove {
+            background: transparent;
+            border: none;
+            color: var(--danger);
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .btn-download {
+            width: 100%;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .status {
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1 class="title">Media Downloader</h1>
+        <p class="subtitle">Extract single videos/audio or build custom MP3 playlists</p>
+    </div>
+
+    <!-- Mode Selector Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('singleTab')">Single URL</button>
+        <button class="tab-btn" onclick="switchTab('queueTab')">Playlist Builder</button>
+    </div>
+
+    <!-- TAB 1: Single URL Downloader -->
+    <div id="singleTab" class="tab-content active">
+        <div class="input-group">
+            <input type="text" id="urlInput" placeholder="Paste video URL (YouTube, TikTok, Twitter)...">
+            <select id="formatSelect">
+                <option value="mp3">MP3</option>
+                <option value="mp4">1080p MP4</option>
+            </select>
+            <button class="btn-main" onclick="downloadSingle()">Download</button>
+        </div>
+    </div>
+
+    <!-- TAB 2: Custom Queue Builder -->
+    <div id="queueTab" class="tab-content">
+        <div class="input-group">
+            <input type="text" id="songInput" placeholder="Artist - Song name..." onkeydown="if(event.key === 'Enter') addSong()">
+            <button class="btn-main" onclick="addSong()">Add</button>
+        </div>
+
+        <div class="queue-card">
+            <div class="queue-header">
+                <span>QUEUE</span>
+                <span id="queueCount">0 songs</span>
+            </div>
+            <ul id="songList" class="song-list"></ul>
+            <button id="downloadQueueBtn" class="btn-download" onclick="downloadQueue()" disabled>Download Queue (.zip)</button>
+        </div>
+    </div>
+
+    <div id="statusText" class="status"></div>
+</div>
+
+<script>
+let queue = [];
+
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+    document.getElementById(tabId).classList.add('active');
+    event.target.classList.add('active');
+    document.getElementById('statusText').innerText = '';
+}
+
+// Single Link Handler
+function downloadSingle() {
+    const url = document.getElementById('urlInput').value.trim();
+    const fmt = document.getElementById('formatSelect').value;
+    const status = document.getElementById('statusText');
+
+    if (!url) return alert('Please enter a URL');
+
+    status.innerText = `Processing single ${fmt.toUpperCase()} download...`;
+    window.location.href = `/download?url=${encodeURIComponent(url)}&format=${fmt}`;
+
+    setTimeout(() => {
+        status.innerText = 'Download started!';
+    }, 4000);
+}
+
+// Queue Handler
+function addSong() {
+    const input = document.getElementById('songInput');
+    const songName = input.value.trim();
+    if (!songName) return;
+
+    queue.push(songName);
+    input.value = '';
+    renderQueue();
+}
+
+function removeSong(index) {
+    queue.splice(index, 1);
+    renderQueue();
+}
+
+function renderQueue() {
+    const listEl = document.getElementById('songList');
+    const countEl = document.getElementById('queueCount');
+    const btn = document.getElementById('downloadQueueBtn');
+
+    listEl.innerHTML = '';
+    countEl.innerText = `${queue.length} song${queue.length === 1 ? '' : 's'}`;
+    btn.disabled = queue.length === 0;
+
+    queue.forEach((song, idx) => {
+        const li = document.createElement('li');
+        li.className = 'song-item';
+        li.innerHTML = `
+            <span>${song}</span>
+            <button class="btn-remove" onclick="removeSong(${idx})">Remove</button>
+        `;
+        listEl.appendChild(li);
+    });
+}
+
+async function downloadQueue() {
+    if (queue.length === 0) return;
+
+    const btn = document.getElementById('downloadQueueBtn');
+    const status = document.getElementById('statusText');
+
+    btn.disabled = true;
+    status.innerText = `Downloading and converting ${queue.length} songs to 320kbps MP3s...`;
+
+    try {
+        const response = await fetch('/download-custom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ songs: queue })
+        });
+
+        if (!response.ok) throw new Error('Download failed');
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = 'Custom_Playlist.zip';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        status.innerText = 'Download complete! Check your Downloads folder.';
+    } catch (err) {
+        status.innerText = 'Error processing playlist. Check terminal logs.';
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>
