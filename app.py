@@ -7,23 +7,6 @@ import yt_dlp
 
 app = Flask(__name__)
 
-def get_cookie_file():
-    """Extracts YOUTUBE_COOKIES from environment variables and formats line breaks properly."""
-    cookies_env = os.environ.get('YOUTUBE_COOKIES')
-    if not cookies_env:
-        return None
-
-    # Handle literal '\n' characters caused by Render's UI text fields
-    cookies_env = cookies_env.strip().replace('\\n', '\n')
-
-    if not cookies_env.startswith('# Netscape'):
-        cookies_env = "# Netscape HTTP Cookie File\n" + cookies_env
-
-    cookie_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
-    cookie_file.write(cookies_env)
-    cookie_file.close()
-    return cookie_file.name
-
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -38,18 +21,14 @@ def download_single():
         return jsonify({'error': 'No URL provided'}), 400
 
     temp_dir = tempfile.mkdtemp()
-    cookie_path = get_cookie_file()
 
-    # Base yt-dlp configuration with Android/iOS client spoofing to bypass bot challenges
+    # Base options with YouTube OAuth2 enabled
     ydl_opts = {
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'restrictfilenames': True,
-        'quiet': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'ios'],
-            }
-        }
+        'quiet': False,  # Must stay False to see OAuth code in server logs
+        'username': 'oauth2',
+        'password': '',
     }
 
     if fmt == 'mp3':
@@ -69,9 +48,6 @@ def download_single():
             'merge_output_format': 'mp4',
         })
         target_ext = '.mp4'
-
-    if cookie_path:
-        ydl_opts['cookiefile'] = cookie_path
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -96,9 +72,6 @@ def download_single():
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
         return jsonify({'error': str(e)}), 500
-    finally:
-        if cookie_path and os.path.exists(cookie_path):
-            os.remove(cookie_path)
 
 # Custom Queue Downloader
 @app.route('/download-custom', methods=['POST'])
@@ -112,7 +85,6 @@ def download_custom():
     temp_dir = tempfile.mkdtemp()
     music_folder = os.path.join(temp_dir, 'Custom_MP3s')
     os.makedirs(music_folder, exist_ok=True)
-    cookie_path = get_cookie_file()
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -123,16 +95,10 @@ def download_custom():
         ],
         'postprocessor_args': {'FFmpegMetadata': ['-id3v2_version', '3']},
         'restrictfilenames': True,
-        'quiet': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'ios'],
-            }
-        }
+        'quiet': False,  # Must stay False to see OAuth code in server logs
+        'username': 'oauth2',
+        'password': '',
     }
-
-    if cookie_path:
-        ydl_opts['cookiefile'] = cookie_path
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -163,9 +129,6 @@ def download_custom():
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
         return jsonify({'error': str(e)}), 500
-    finally:
-        if cookie_path and os.path.exists(cookie_path):
-            os.remove(cookie_path)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
