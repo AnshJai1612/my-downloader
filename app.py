@@ -6,6 +6,14 @@ import yt_dlp
 
 app = Flask(__name__)
 
+# Write environment variable cookies to a temporary file for yt-dlp on Render
+COOKIE_FILE_PATH = None
+cookies_env = os.environ.get('YOUTUBE_COOKIES')
+if cookies_env:
+    COOKIE_FILE_PATH = os.path.join(tempfile.gettempdir(), 'youtube_cookies.txt')
+    with open(COOKIE_FILE_PATH, 'w', encoding='utf-8') as f:
+        f.write(cookies_env)
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -20,19 +28,22 @@ def download():
     temp_dir = tempfile.mkdtemp()
 
     ydl_opts = {
-        'format': 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'merge_output_format': 'mp4',
         'quiet': True,
         'no_warnings': True,
         'restrictfilenames': True,
-        # Pass mobile client players to bypass bot & OAuth checks
         'extractor_args': {
             'youtube': {
                 'player_client': ['mweb', 'android']
             }
         }
     }
+
+    # Attach cookiefile if deployed on Render with YOUTUBE_COOKIES configured
+    if COOKIE_FILE_PATH and os.path.exists(COOKIE_FILE_PATH):
+        ydl_opts['cookiefile'] = COOKIE_FILE_PATH
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
