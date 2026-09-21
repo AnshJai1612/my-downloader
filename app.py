@@ -6,7 +6,6 @@ import yt_dlp
 
 app = Flask(__name__)
 
-# Render mounts Secret Files at /etc/secrets/
 RENDER_COOKIE_PATH = '/etc/secrets/cookies.txt'
 LOCAL_COOKIE_PATH = 'cookies.txt'
 
@@ -16,10 +15,6 @@ def get_cookie_file():
     elif os.path.exists(LOCAL_COOKIE_PATH):
         return LOCAL_COOKIE_PATH
     return None
-
-@app.route('/')
-def home():
-    return render_template('index.html')
 
 @app.route('/download', methods=['GET'])
 def download():
@@ -37,10 +32,16 @@ def download():
         'quiet': True,
         'no_warnings': True,
         'restrictfilenames': True,
+        # Force player clients that bypass standard web bot detection
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'android']
+                'player_client': ['ios', 'android', 'mweb'],
+                'skip': ['hls', 'dash']
             }
+        },
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+            'Accept-Language': 'en-US,en;q=0.9',
         }
     }
 
@@ -75,7 +76,3 @@ def download():
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
         return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
