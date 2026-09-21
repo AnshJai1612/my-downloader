@@ -6,13 +6,16 @@ import yt_dlp
 
 app = Flask(__name__)
 
-# Write environment variable cookies to a temporary file for yt-dlp on Render
-COOKIE_FILE_PATH = None
-cookies_env = os.environ.get('YOUTUBE_COOKIES')
-if cookies_env:
-    COOKIE_FILE_PATH = os.path.join(tempfile.gettempdir(), 'youtube_cookies.txt')
-    with open(COOKIE_FILE_PATH, 'w', encoding='utf-8') as f:
-        f.write(cookies_env)
+# Render mounts Secret Files at /etc/secrets/
+RENDER_COOKIE_PATH = '/etc/secrets/cookies.txt'
+LOCAL_COOKIE_PATH = 'cookies.txt'
+
+def get_cookie_file():
+    if os.path.exists(RENDER_COOKIE_PATH):
+        return RENDER_COOKIE_PATH
+    elif os.path.exists(LOCAL_COOKIE_PATH):
+        return LOCAL_COOKIE_PATH
+    return None
 
 @app.route('/')
 def home():
@@ -21,11 +24,11 @@ def home():
 @app.route('/download', methods=['GET'])
 def download():
     url = request.args.get('url')
-    
     if not url:
         return jsonify({'error': 'Please provide a valid video URL.'}), 400
 
     temp_dir = tempfile.mkdtemp()
+    cookie_file = get_cookie_file()
 
     ydl_opts = {
         'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
@@ -41,9 +44,8 @@ def download():
         }
     }
 
-    # Attach cookiefile if deployed on Render with YOUTUBE_COOKIES configured
-    if COOKIE_FILE_PATH and os.path.exists(COOKIE_FILE_PATH):
-        ydl_opts['cookiefile'] = COOKIE_FILE_PATH
+    if cookie_file:
+        ydl_opts['cookiefile'] = cookie_file
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -76,4 +78,4 @@ def download():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
