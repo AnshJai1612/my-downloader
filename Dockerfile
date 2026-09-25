@@ -5,7 +5,10 @@ ENV PYTHONUNBUFFERED=1
 ENV DENO_INSTALL=/root/.deno
 ENV PATH="/root/.deno/bin:$PATH"
 
-# System packages
+# ------------------------------------------------------------
+# System dependencies
+# ------------------------------------------------------------
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ffmpeg \
@@ -14,22 +17,29 @@ RUN apt-get update && \
         unzip && \
     rm -rf /var/lib/apt/lists/*
 
+# ------------------------------------------------------------
 # Install Deno
+# ------------------------------------------------------------
+
 RUN curl -fsSL https://deno.land/install.sh | sh
 
-# App directory
+# ------------------------------------------------------------
+# Python application
+# ------------------------------------------------------------
+
 WORKDIR /app
 
-# Python dependencies
 COPY requirements.txt .
 
 RUN python -m pip install --no-cache-dir --upgrade pip && \
     python -m pip install --no-cache-dir -r requirements.txt
 
-# Application
 COPY . .
 
+# ------------------------------------------------------------
 # Verify dependencies
+# ------------------------------------------------------------
+
 RUN echo "===== DENO =====" && \
     deno --version
 
@@ -39,7 +49,14 @@ RUN echo "===== FFMPEG =====" && \
 RUN echo "===== YT-DLP =====" && \
     python -c "import yt_dlp; print('yt-dlp:', yt_dlp.version.__version__)"
 
-# IMPORTANT:
-# Use a shell so $PORT is expanded by the container.
-CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --timeout 300 app:app"]
+# ------------------------------------------------------------
+# IMPORTANT
+#
+# Render's default PORT is 10000.
+# We explicitly set PORT=10000 in Render.
+#
+# This avoids passing the literal '$PORT' to Gunicorn.
+# ------------------------------------------------------------
+
+CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "1", "--timeout", "300", "app:app"]
 ```
