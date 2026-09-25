@@ -1,62 +1,22 @@
-```dockerfile
-FROM python:3.12-slim
+FROM python:3.11-slim
 
-ENV PYTHONUNBUFFERED=1
-ENV DENO_INSTALL=/root/.deno
-ENV PATH="/root/.deno/bin:$PATH"
-
-# ------------------------------------------------------------
-# System dependencies
-# ------------------------------------------------------------
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        ffmpeg \
-        curl \
-        ca-certificates \
-        unzip && \
-    rm -rf /var/lib/apt/lists/*
-
-# ------------------------------------------------------------
-# Install Deno
-# ------------------------------------------------------------
-
-RUN curl -fsSL https://deno.land/install.sh | sh
-
-# ------------------------------------------------------------
-# Python application
-# ------------------------------------------------------------
+# Install system dependencies: FFmpeg and Node.js
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Install Python packages
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -m pip install --no-cache-dir --upgrade pip && \
-    python -m pip install --no-cache-dir -r requirements.txt
-
+# Copy application files
 COPY . .
 
-# ------------------------------------------------------------
-# Verify dependencies
-# ------------------------------------------------------------
+# Render assigns its own port at runtime via the $PORT env var
+EXPOSE 10000
 
-RUN echo "===== DENO =====" && \
-    deno --version
-
-RUN echo "===== FFMPEG =====" && \
-    ffmpeg -version | head -n 1
-
-RUN echo "===== YT-DLP =====" && \
-    python -c "import yt_dlp; print('yt-dlp:', yt_dlp.version.__version__)"
-
-# ------------------------------------------------------------
-# IMPORTANT
-#
-# Render's default PORT is 10000.
-# We explicitly set PORT=10000 in Render.
-#
-# This avoids passing the literal '$PORT' to Gunicorn.
-# ------------------------------------------------------------
-
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "1", "--timeout", "300", "app:app"]
-```
+# Run Gunicorn, binding to whatever port Render gives us (falls back to 10000 locally)
+CMD gunicorn -w 2 -b 0.0.0.0:${PORT:-10000} --timeout 300 app:app
